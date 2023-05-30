@@ -65,7 +65,7 @@ setuptools.setup(
     author="Google LLC",
     author_email="no-reply@onxmaps.com",
     license="Apache 2.0",
-    url="https://github.com/onXMaps/composer-local",
+    url="https://github.com/onXMaps/composer-local-dev",
     keywords="google airflow composer local development",
     classifiers=[
         release_status,
