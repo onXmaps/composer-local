@@ -545,19 +545,14 @@ class Environment:
             for x in pathlib.Path(self.env_dir_path / "plugins").glob("**/*")
             if x.is_file()
         }
-        logging.debug(f"The plugins are: {plugins}")
 
         def build_package_name(package, version, plugins=plugins):
-            logging.debug(f"checking {package}, from plugins {plugins}")
             if package in plugins.keys():
                 logging.debug(f"Found plugin package {package}")
-                # return f"{package}{version}"
                 return f"./gcs/plugins/{plugins[package]}"
             else:
-                logging.debug(f"didnt find {package}")
                 return f"{package}{version}"
 
-        logging.debug(f"the pip packages are: {self.pypi_packages.items()}")
         reqs = sorted(
             build_package_name(key, value)
             for key, value in self.pypi_packages.items()
