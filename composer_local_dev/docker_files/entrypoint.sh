@@ -28,6 +28,16 @@ if [ -f /var/local/setup_python_command.sh ]; then
     /var/local/setup_python_command.sh
 fi
 
+# for entry in "$AIRFLOW__CORE__PLUGINS_FOLDER"/*
+# do
+#   package_parts=(${entry//-/})
+#   STR='GNU/Linux is an operating system'
+#   SUB='Linux'
+#   if [[ "$STR" == *"${package_parts[0]}"* ]]; then
+#     echo "found ${package_parts[0]} in plugins and requirements.txt"
+#     sed -E -i "s/\/${package_parts[0]}*/\.\/gcs\/plugins\/${entry}/g" 
+#   fi
+# done
 pip3 install --upgrade -r composer_requirements.txt
 pip3 check
 

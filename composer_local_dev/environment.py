@@ -58,10 +58,11 @@ def get_image_mounts(
         requirements: "composer_requirements.txt",
         dags_path: "gcs/dags/",
         env_path / "plugins": "gcs/plugins/",
-        env_path / "data": "airflow/data/",
+        env_path / "data": "gcs/data/",
         gcloud_config_path: ".config/gcloud",
         env_path / "airflow.db": "airflow/airflow.db",
     }
+    LOG.debug(f"the mount paths are: {mount_paths}")
     return [
         docker.types.Mount(
             source=str(source),
@@ -80,6 +81,7 @@ def get_default_environment_variables(
         "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.default",
         "AIRFLOW__WEBSERVER__EXPOSE_CONFIG": "true",
         "AIRFLOW__CORE__LOAD_EXAMPLES": "false",
+        # "AIRFLOW__CORE__EXECUTOR": "KubernetesExecutor",
         "AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL": dag_dir_list_interval,
         "AIRFLOW__CORE__DAGS_FOLDER": "/home/airflow/gcs/dags",
         "AIRFLOW__CORE__PLUGINS_FOLDER": "/home/airflow/gcs/plugins",
@@ -538,8 +540,27 @@ class Environment:
 
     def pypi_packages_to_requirements(self):
         """Create requirements file using environment PyPi packagest list."""
+        plugins = {
+            x.stem.split("-")[0]: x.name
+            for x in pathlib.Path(self.env_dir_path / "plugins").glob("**/*")
+            if x.is_file()
+        }
+        logging.debug(f"The plugins are: {plugins}")
+
+        def build_package_name(package, version, plugins=plugins):
+            logging.debug(f"checking {package}, from plugins {plugins}")
+            if package in plugins.keys():
+                logging.debug(f"Found plugin package {package}")
+                # return f"{package}{version}"
+                return f"./gcs/plugins/{plugins[package]}"
+            else:
+                logging.debug(f"didnt find {package}")
+                return f"{package}{version}"
+
+        logging.debug(f"the pip packages are: {self.pypi_packages.items()}")
         reqs = sorted(
-            f"{key}{value}" for key, value in self.pypi_packages.items()
+            build_package_name(key, value)
+            for key, value in self.pypi_packages.items()
         )
         reqs_lines = "\n".join(reqs)
         with open(self.env_dir_path / "requirements.txt", "w") as fp:

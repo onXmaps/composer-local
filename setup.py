@@ -24,6 +24,8 @@ release_status = (
     "Development Status :: 4 - Beta"  # see https://pypi.org/classifiers/
 )
 dependencies = [
+    "sqlalchemy<2.0",
+    "urllib3==1.26.6",
     "click>=7.0",
     "google-auth==1.30.*",
     "google-cloud-orchestration-airflow>=1.2.0",
@@ -60,10 +62,10 @@ setuptools.setup(
     description=description,
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Google LLC", 
-    author_email="no-reply@google.com",
+    author="Google LLC",
+    author_email="no-reply@onxmaps.com",
     license="Apache 2.0",
-    url='https://github.com/GoogleCloudPlatform/composer-local-dev',
+    url="https://github.com/onXMaps/composer-local",
     keywords="google airflow composer local development",
     classifiers=[
         release_status,
