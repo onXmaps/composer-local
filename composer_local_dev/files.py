@@ -107,7 +107,19 @@ def resolve_dags_path(dags_path: Optional[str], env_dir: pathlib.Path) -> str:
     return str(dags_path.resolve())
 
 
-def create_environment_directories(env_dir: pathlib.Path, dags_path: str):
+def resolve_library_paths(
+    library_paths: Optional[str], env_dir: pathlib.Path
+) -> str:
+    if library_paths is None:
+        console.get_console().print(constants.LIBRARY_PATHS_NOT_PROVIDED_WARN)
+        return None
+    else:
+        return [str(pathlib.Path(lib).resolve()) for lib in library_paths]
+
+
+def create_environment_directories(
+    env_dir: pathlib.Path, dags_path: str, library_paths: list[str]
+):
     """
     Create environment directories (overwriting existing ones).
     Environment directory is a directory which contains configuration files for
@@ -123,12 +135,25 @@ def create_environment_directories(env_dir: pathlib.Path, dags_path: str):
     env_dir.mkdir(exist_ok=True, parents=True)
     for sub_dir in env_dirs:
         (env_dir / sub_dir).mkdir(exist_ok=True)
+
     dags_path = pathlib.Path(dags_path)
+
     if not dags_path.is_dir():
         console.get_console().print(
             constants.CREATING_DAGS_PATH_WARN.format(dags_path=dags_path)
         )
         dags_path.mkdir(parents=True)
+    if library_paths:
+        for library in library_paths:
+            library = pathlib.Path(library)
+
+            if not library.is_dir():
+                console.get_console().print(
+                    constants.CREATING_DAGS_PATH_WARN.format(dags_path=library)
+                )
+                # library_paths.mkdir(parents=True)
+    else:
+        console.get_console().print(constants.LIBRARY_PATHS_NOT_PROVIDED_WARN)
 
 
 def get_available_environments(composer_dir: pathlib.Path):
@@ -207,3 +232,14 @@ def assert_dag_path_exists(path: str) -> None:
     if pathlib.Path(path).is_dir():
         return
     raise errors.DAGPathNotExistError(path)
+
+
+def assert_library_paths_exist(paths: [str]) -> None:
+    """Raise an error if DAG path does not point to existing directory."""
+    if len(paths):
+        for path in paths:
+            if pathlib.Path(path).is_dir():
+                return
+            raise errors.DAGPathNotExistError(path)
+    else:
+        return

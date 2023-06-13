@@ -43,6 +43,7 @@ def timeout_occurred(start_time):
 def get_image_mounts(
     env_path: pathlib.Path,
     dags_path: str,
+    library_paths: list,
     gcloud_config_path: str,
     requirements: pathlib.Path,
 ) -> List[docker.types.Mount]:
@@ -62,6 +63,8 @@ def get_image_mounts(
         gcloud_config_path: ".config/gcloud",
         env_path / "airflow.db": "airflow/airflow.db",
     }
+    mount_paths = {lib: "gcs/dags/" for lib in library_paths}
+
     LOG.debug(f"the mount paths are: {mount_paths}")
     return [
         docker.types.Mount(
@@ -348,14 +351,19 @@ class EnvironmentConfig:
         self.image_version = self.get_str_param("composer_image_version")
         self.location = self.get_str_param("composer_location")
         self.dags_path = self.get_str_param("dags_path")
+        self.library_paths = self.get_str_param("library_paths")
         self.dag_dir_list_interval = self.parse_int_param(
             "dag_dir_list_interval", allowed_range=(0,)
+        )
+        LOG.info(
+            f"the library paths are: {self.get_str_param('library_paths')}"
         )
         self.port = (
             port
             if port is not None
             else self.parse_int_param("port", allowed_range=(0, 65536))
         )
+        print(f"the library paths are: {self.library_paths}")
 
     def load_configuration_from_file(self) -> Dict:
         """
@@ -430,6 +438,7 @@ class Environment:
         image_version: str,
         location: str,
         dags_path: Optional[str],
+        library_paths: Optional[str],
         dag_dir_list_interval: int = 10,
         port: Optional[int] = None,
         pypi_packages: Optional[Dict] = None,
@@ -446,6 +455,11 @@ class Environment:
         self.image_tag = get_docker_image_tag_from_image_version(image_version)
         self.location = location
         self.dags_path = files.resolve_dags_path(dags_path, env_dir_path)
+        LOG.debug(f"IN Environment the lp is: {library_paths}")
+        self.library_paths = files.resolve_library_paths(
+            library_paths, env_dir_path
+        )
+        LOG.debug(f"after parsing the librarypaths are: {self.library_paths}")
         self.dag_dir_list_interval = dag_dir_list_interval
         self.port: int = port if port is not None else 8080
         self.pypi_packages = (
@@ -497,6 +511,7 @@ class Environment:
             image_version=config.image_version,
             location=config.location,
             dags_path=config.dags_path,
+            library_paths=config.library_paths,
             dag_dir_list_interval=config.dag_dir_list_interval,
             port=config.port,
             environment_vars=environment_vars,
@@ -511,6 +526,7 @@ class Environment:
         env_dir_path: pathlib.Path,
         web_server_port: Optional[int],
         dags_path: Optional[str],
+        library_paths=Optional[list[str]],
     ):
         """
         Create Environment using configuration retrieved from Composer
@@ -519,7 +535,7 @@ class Environment:
         software_config = get_software_config_from_environment(
             project, location, source_environment
         )
-
+        logging.debug(f"library paths in from source are: {library_paths}")
         pypi_packages = {k: v for k, v in software_config.pypi_packages.items()}
         env_variables = get_env_variables(software_config)
         airflow_overrides = get_airflow_overrides(software_config)
@@ -532,6 +548,7 @@ class Environment:
             image_version=software_config.image_version,
             location=location,
             dags_path=dags_path,
+            library_paths=library_paths,
             dag_dir_list_interval=10,
             port=web_server_port,
             pypi_packages=pypi_packages,
@@ -585,6 +602,7 @@ class Environment:
             "composer_location": self.location,
             "composer_project_id": self.project_id,
             "dags_path": self.dags_path,
+            "library_paths": self.library_paths,
             "dag_dir_list_interval": int(self.dag_dir_list_interval),
             "port": int(self.port),
         }
@@ -600,6 +618,7 @@ class Environment:
         mounts = get_image_mounts(
             self.env_dir_path,
             self.dags_path,
+            self.library_paths,
             utils.resolve_gcloud_config_path(),
             self.requirements_file,
         )
@@ -672,12 +691,16 @@ class Environment:
         and environment configuration will be saved to config.json and
         requirements.txt files.
         """
+        LOG.debug(f"in create the lps are: {self.library_paths}")
         assert_image_exists(self.image_version)
-        files.create_environment_directories(self.env_dir_path, self.dags_path)
+        files.create_environment_directories(
+            self.env_dir_path, self.dags_path, self.library_paths
+        )
         files.create_empty_file(self.airflow_db, skip_if_exist=False)
         self.write_environment_config_to_config_file()
         self.pypi_packages_to_requirements()
         self.environment_vars_to_env_file()
+
         console.get_console().print(
             constants.CREATE_MESSAGE.format(
                 env_dir=self.env_dir_path,
@@ -686,6 +709,7 @@ class Environment:
                 requirements_path=self.env_dir_path / "requirements.txt",
                 env_variables_path=self.env_dir_path / "variables.env",
                 dags_path=self.dags_path,
+                library_paths=self.library_paths,
             )
         )
 
@@ -747,6 +771,7 @@ class Environment:
         assert_image_exists(self.image_version)
         self.assert_requirements_exist()
         files.assert_dag_path_exists(self.dags_path)
+        files.assert_library_paths_exist(self.library_paths)
         files.create_empty_file(self.airflow_db)
         files.fix_file_permissions(
             self.entrypoint_file, self.requirements_file, self.airflow_db
@@ -785,6 +810,7 @@ class Environment:
             constants.START_MESSAGE.format(
                 env_name=self.name,
                 dags_path=self.dags_path,
+                library_paths=self.library_paths,
                 port=self.port,
             )
         )
