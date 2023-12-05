@@ -59,13 +59,14 @@ def get_image_mounts(
         requirements: "composer_requirements.txt",
         dags_path: "gcs/dags/",
         env_path / "plugins": "gcs/plugins/",
-        env_path / "data": "gcs/data/",
+        env_path / "data": "airflow/data/",
         gcloud_config_path: ".config/gcloud",
         env_path / "airflow.db": "airflow/airflow.db",
     }
     mount_paths = {lib: "gcs/dags/" for lib in library_paths}
 
     LOG.debug(f"the mount paths are: {mount_paths}")
+
     return [
         docker.types.Mount(
             source=str(source),
@@ -562,6 +563,7 @@ class Environment:
             for x in pathlib.Path(self.env_dir_path / "plugins").glob("**/*")
             if x.is_file()
         }
+        LOG.debug(f"Found plugins are: {plugins}")
 
         def build_package_name(package, version, plugins=plugins):
             if package in plugins.keys():
